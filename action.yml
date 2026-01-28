@@ -111,6 +111,14 @@ runs:
       run: |
         pip install --upgrade pip
         pip install trusys-llm-scan semgrep
+        # Install AI dependencies if AI filtering is enabled
+        if [ "${{ inputs.enable-ai-filter }}" = "true" ]; then
+          if [ "${{ inputs.ai-provider }}" = "openai" ]; then
+            pip install openai
+          elif [ "${{ inputs.ai-provider }}" = "anthropic" ]; then
+            pip install anthropic
+          fi
+        fi
     
     - name: Run LLM Security Scan
       id: scan
