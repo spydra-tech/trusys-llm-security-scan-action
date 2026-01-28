@@ -1,6 +1,66 @@
 # LLM Security Scan GitHub Action
 
-A GitHub Action that scans your codebase for LLM (Large Language Model) security vulnerabilities using Semgrep and optional AI-powered analysis.
+A GitHub Action that runs **trusys-llm-scan** in your CI to find LLM (Large Language Model) security issues in your code—prompt injection, unsafe model usage, data exposure, and framework-specific risks. Results can be reported as SARIF (for GitHub Security tab), JSON, or console output.
+
+---
+
+## What this action does
+
+1. **Checks out your repo** and sets up Python.
+2. **Installs** `trusys-llm-scan` and Semgrep from PyPI.
+3. **Runs the scan** on the paths you specify (default: whole repo).
+4. **Optionally** uploads SARIF so findings show in the repository **Security** tab.
+5. **Optionally** runs AI-based filtering or uploads results to your backend.
+
+No config is required for a basic scan; add inputs only when you need custom paths, severity filters, AI, or upload.
+
+**Requirements:** None in your repo. The action installs Python (via `actions/setup-python`) and the scanner (`trusys-llm-scan`) from PyPI. Your code only needs to be in a GitHub repository.
+
+---
+
+## How to use the action (quick start)
+
+### 1. Add a workflow file
+
+In your repository, create or edit a file under `.github/workflows/`. For example:
+
+- **File:** `.github/workflows/llm-security-scan.yml`
+
+### 2. Minimum workflow (scan on push and pull requests)
+
+Copy this into that file:
+
+```yaml
+name: LLM Security Scan
+
+on: [push, pull_request]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run LLM Security Scan
+        uses: spydra-tech/trusys-llm-security-scan-action@v1
+```
+
+That’s it. Every push and pull request will run the scanner. By default it:
+
+- Scans the whole repository (`.`)
+- Outputs in **SARIF** and uploads to GitHub so findings appear under **Security → Code scanning**
+- Uses Python 3.9
+
+**Where do I see results?**  
+With the default `format: 'sarif'`, the action uploads results to GitHub. Open your repo on GitHub → **Security** → **Code scanning** to see the findings. You can also read the job log for the full scan output.
+
+### 3. Optional: pin to a specific version
+
+- `@v1` — use the latest v1.x (recommended for stability).
+- `@v1.0.0` — use an exact version.
+- `@main` — use the latest from the default branch (may change without notice).
+
+---
 
 ## Features
 
@@ -10,9 +70,27 @@ A GitHub Action that scans your codebase for LLM (Large Language Model) security
 - 🔗 **Backend Integration**: Optional upload of results to your backend API
 - ⚡ **Fast & Reliable**: Built on Semgrep for efficient static analysis
 
-## Usage
+---
 
-### Basic Usage
+## Common configurations
+
+| What you want | Add this under `with:` |
+|---------------|------------------------|
+| Scan only some folders | `paths: 'src,lib'` |
+| Only high/critical findings | `severity: 'critical,high'` |
+| Ignore tests and deps | `exclude: '**/test/**,**/node_modules/**'` |
+| Different Python | `python-version: '3.11'` |
+| JSON instead of SARIF | `format: 'json'` |
+| AI false-positive filtering | `enable-ai-filter: 'true'` and `ai-api-key: ${{ secrets.OPENAI_API_KEY }}` |
+| Send results to your backend | `upload-endpoint: 'https://...'`, `application-id: '...'`, `api-key: ${{ secrets.API_KEY }}` |
+
+Full list of inputs is in the **Inputs** table below.
+
+---
+
+## Usage examples
+
+### Basic (defaults: whole repo, SARIF, Security tab)
 
 ```yaml
 name: LLM Security Scan
@@ -24,40 +102,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Run LLM Security Scan
         uses: spydra-tech/trusys-llm-security-scan-action@v1
 ```
 
-### Advanced Usage with AI Analysis
+### Paths, severity, and exclusions
 
 ```yaml
-name: LLM Security Scan
-
-on: [push, pull_request]
-
-jobs:
-  scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Run LLM Security Scan with AI
-        uses: spydra-tech/trusys-llm-security-scan-action@v1
-        with:
-          paths: 'src,lib'
-          severity: 'high,critical'
-          exclude: '**/test/**,**/node_modules/**'
-          format: 'sarif'
-          enable-ai-filter: 'true'
-          ai-provider: 'openai'
-          ai-model: 'gpt-4'
-          ai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          ai-confidence-threshold: '0.8'
-          ai-max-findings: '100'
+- uses: spydra-tech/trusys-llm-security-scan-action@v1
+  with:
+    paths: 'src,lib'
+    severity: 'high,critical'
+    exclude: '**/test/**,**/node_modules/**'
+    format: 'sarif'
 ```
 
-### With Backend Upload
+### With AI-powered false-positive filtering
+
+Requires an API key in GitHub Secrets (e.g. `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`).
+
+```yaml
+- uses: spydra-tech/trusys-llm-security-scan-action@v1
+  with:
+    paths: 'src,lib'
+    severity: 'high,critical'
+    exclude: '**/test/**,**/node_modules/**'
+    format: 'sarif'
+    enable-ai-filter: 'true'
+    ai-provider: 'openai'
+    ai-model: 'gpt-4'
+    ai-api-key: ${{ secrets.OPENAI_API_KEY }}
+    ai-confidence-threshold: '0.8'
+    ai-max-findings: '100'
+```
+
+### With backend upload
 
 ```yaml
 name: LLM Security Scan
@@ -80,6 +160,8 @@ jobs:
 ```
 
 ## Inputs
+
+All inputs are optional. Omit any you don’t need.
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
@@ -177,8 +259,8 @@ jobs:
 
 ## Requirements
 
-- Python 3.9 or higher
-- The scanner will be automatically installed from PyPI (`trusys-llm-scan`)
+- **In your repo:** Nothing. The action installs Python (3.9 by default, overridable via `python-version`) and the scanner (`trusys-llm-scan`) from PyPI.
+- **GitHub:** A repository with Actions enabled; add the workflow file under `.github/workflows/`.
 
 ## Troubleshooting
 
@@ -202,4 +284,3 @@ MIT License
 ## Support
 
 For issues and questions, please open an issue in the [repository](https://github.com/spydra-tech/trusys-llm-security-scan-action).
-# trusys-llm-security-scan-action
