@@ -137,9 +137,9 @@ runs:
         
         # Add output file if specified
         if [ -n "${{ inputs.output }}" ]; then
-          CMD="$CMD --output ${{ inputs.output }}"
+          CMD="$CMD --out ${{ inputs.output }}"
         elif [ "${{ inputs.format }}" = "sarif" ]; then
-          CMD="$CMD --output llm-scan-results.sarif"
+          CMD="$CMD --out llm-scan-results.sarif"
         fi
         
         # Add severity filter
